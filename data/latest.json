@@ -1,0 +1,32 @@
+{
+  "metadata": {
+    "built_at": null,
+    "station": {"id": "33008", "name": "Bangor", "source": "EPA Hydronet"},
+    "latest_level": null,
+    "latest_age_hours": null,
+    "trend": "Stable",
+    "rate_mm_hr": 0,
+    "statuses": {},
+    "source_links": {
+      "epa_station": "https://epawebapp.epa.ie/hydronet/#33008",
+      "epa_zip": "https://epawebapp.epa.ie/Hydronet/output/internet/stations/CAS/33008/S/3_months.zip",
+      "epa_chart_png": "https://epawebapp.epa.ie/Hydronet/output/internet/stations/CAS/33008/S/extralarge_3m_extralarge.png",
+      "met_eireann_forecast": "https://openaccess.pf.api.met.ie/metno-wdb2ts/locationforecast",
+      "met_eireann_daily_rain": "https://clidata.met.ie/cli/climate_data/webdata/dly1834.csv",
+      "marine_high_low_tide": "https://erddap.marine.ie/erddap/tabledap/IMI_TidePrediction_HighLow.csv",
+      "marine_tide_series": "https://erddap.marine.ie/erddap/tabledap/IMI-TidePrediction.csv",
+      "generated_latest_json": "./data/latest.json",
+      "generated_river_json": "./data/river.json",
+      "generated_rainfall_json": "./data/rainfall.json",
+      "generated_weather_json": "./data/weather.json",
+      "generated_tide_json": "./data/tide.json",
+      "generated_forecast_json": "./data/forecast.json"
+    }
+  },
+  "river": {"rows": []},
+  "rainfall": {"observed": [], "forecast": [], "summary": {}},
+  "weather": {"current": null, "daily": []},
+  "tide": {"display": [], "series": []},
+  "forecast": {"points": [], "current": null},
+  "summary12h": []
+}
