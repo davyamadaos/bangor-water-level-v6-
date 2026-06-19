@@ -1,1 +1,103 @@
+name: Deploy Water Level Dashboard
 
+ 
+
+on:
+
+  push:
+
+    branches:
+
+      - main
+
+  workflow_dispatch:
+
+ 
+
+permissions:
+
+  contents: read
+
+  pages: write
+
+  id-token: write
+
+ 
+
+concurrency:
+
+  group: pages
+
+  cancel-in-progress: true
+
+ 
+
+jobs:
+
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    environment:
+
+      name: github-pages
+
+      url: ${{ steps.deployment.outputs.page_url }}
+
+ 
+
+    steps:
+
+      - name: Checkout repository
+
+        uses: actions/checkout@v4
+
+ 
+
+      - name: Prepare site folder
+
+        run: |
+
+          mkdir -p _site
+
+          cp index.html _site/index.html
+
+ 
+
+      - name: Verify index.html exists
+
+        run: |
+
+          if [ ! -f _site/index.html ]; then
+
+            echo "ERROR: index.html not found in repo root"
+
+            exit 1
+
+          fi
+
+          echo "index.html found - $(wc -c < _site/index.html) bytes"
+
+ 
+
+      - name: Setup GitHub Pages
+
+        uses: actions/configure-pages@v5
+
+ 
+
+      - name: Upload site artifact
+
+        uses: actions/upload-pages-artifact@v3
+
+        with:
+
+          path: '_site'
+
+ 
+
+      - name: Deploy to GitHub Pages
+
+        id: deployment
+
+        uses: actions/deploy-pages@v4
