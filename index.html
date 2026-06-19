@@ -1,1 +1,547 @@
+<!DOCTYPE html>
 
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+<meta name="apple-mobile-web-app-title" content="Water Level" />
+
+<title>Water Level Dashboard</title>
+
+<script src=https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js></script>
+
+<script src=https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js></script>
+
+<script src=https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js></script>
+
+<script src=https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js></script>
+
+<style>
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{--bg:#0f172a;--surface:#1e293b;--border:#334155;--muted:#64748b;--subtle:#94a3b8;--text:#e2e8f0;--accent:#38bdf8;--accent2:#818cf8;--danger:#f87171;--success:#4ade80}
+
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px 16px 40px}
+
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+
+header h1{font-size:1.1rem;font-weight:700;color:var(--accent)}
+
+#refresh-btn{background:var(--surface);border:1px solid var(--border);color:var(--accent);border-radius:8px;padding:7px 14px;font-size:.85rem;font-weight:600;cursor:pointer}
+
+.source-panel{background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:14px}
+
+.source-panel h2,.settings h2{font-size:.72rem;color:var(--subtle);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+
+.source-tabs{display:flex;gap:8px;margin-bottom:12px}
+
+.tab-btn{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--subtle);font-size:.8rem;font-weight:600;cursor:pointer}
+
+.tab-btn.active{background:var(--accent);border-color:var(--accent);color:#0f172a}
+
+.source-pane{display:none}
+
+.source-pane.active{display:block}
+
+.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;position:relative}
+
+.drop-zone:hover{border-color:var(--accent);background:rgba(56,189,248,.05)}
+
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+
+.drop-zone-icon{font-size:1.8rem;margin-bottom:6px}
+
+.drop-zone-text{font-size:.8rem;color:var(--subtle)}
+
+.drop-zone-hint{font-size:.68rem;color:var(--muted);margin-top:4px}
+
+#file-chosen-label{font-size:.75rem;color:var(--success);margin-top:8px;display:none}
+
+.field{margin-bottom:10px}
+
+.field label{font-size:.72rem;color:var(--subtle);display:block;margin-bottom:4px}
+
+.field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:.82rem}
+
+.field input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+
+.load-btn{width:100%;margin-top:10px;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#0f172a;font-size:.85rem;font-weight:700;cursor:pointer}
+
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+
+.card{background:var(--surface);border-radius:14px;padding:14px 12px;border:1px solid var(--border)}
+
+.card-label{font-size:.65rem;color:var(--subtle);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+
+.card-value{font-size:2rem;font-weight:800;line-height:1;color:var(--accent)}
+
+.card--adj .card-value{color:var(--accent2)}
+
+.card-unit{font-size:.65rem;color:var(--muted);margin-top:4px}
+
+.chart-wrap{background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:14px}
+
+.chart-header{font-size:.72rem;color:var(--subtle);margin-bottom:10px;display:flex;justify-content:space-between}
+
+.legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+.settings{background:var(--surface);border-radius:14px;padding:14px;border:1px solid var(--border);margin-bottom:14px}
+
+#status{font-size:.7rem;color:var(--muted);text-align:center;margin-top:8px}
+
+#error-box{display:none;background:#450a0a;border:1px solid #7f1d1d;color:var(--danger);border-radius:10px;padding:12px;font-size:.78rem;margin-bottom:12px;line-height:1.5}
+
+#loading{display:none;position:fixed;inset:0;background:rgba(15,23,42,.75);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--accent);font-size:.9rem;font-weight:600}
+
+#loading.active{display:flex}
+
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="loading"><div class="spinner"></div><span id="loading-msg">Loading...</span></div>
+
+<header>
+
+  <h1>&#127754; Water Level &mdash; Stn 33008</h1>
+
+  <button id="refresh-btn" onclick="reloadCurrent()">&#8635; Refresh</button>
+
+</header>
+
+<div class="source-panel">
+
+  <h2>Data Source</h2>
+
+  <div class="source-tabs">
+
+    <button class="tab-btn active" id="tab-remote" onclick="switchTab('remote')">Remote URL</button>
+
+    <button class="tab-btn" id="tab-local" onclick="switchTab('local')">Local File</button>
+
+  </div>
+
+  <div class="source-pane active" id="pane-remote">
+
+    <div class="field"><label>ZIP or CSV URL</label>
+
+      <input type="url" id="remote-url" value=https://epawebapp.epa.ie/Hydronet/output/internet/stations/CAS/33008/S/3_months.zip /></div>
+
+    <div class="field"><label>CORS Proxy prefix (leave blank if not needed)</label>
+
+      <input type="text" id="cors-proxy" value=https://corsproxy.io/?url= /></div>
+
+    <button class="load-btn" onclick="loadRemote()">Load from URL</button>
+
+  </div>
+
+  <div class="source-pane" id="pane-local">
+
+    <div class="drop-zone" id="drop-zone">
+
+      <input type="file" id="file-input" accept=".zip,.csv,.txt" onchange="onFileChosen(event)" />
+
+      <div class="drop-zone-icon">&#128193;</div>
+
+      <div class="drop-zone-text">Click to browse your computer</div>
+
+      <div class="drop-zone-hint">Accepts .zip (containing CSV) or a raw .csv file</div>
+
+      <div id="file-chosen-label"></div>
+
+    </div>
+
+    <button class="load-btn" id="load-local-btn" onclick="loadLocalFile()" style="display:none">Load Selected File</button>
+
+  </div>
+
+</div>
+
+<div class="cards">
+
+  <div class="card"><div class="card-label">Current Level</div>
+
+    <div class="card-value" id="current-level">--</div>
+
+    <div class="card-unit">m OD Malin</div></div>
+
+  <div class="card card--adj"><div class="card-label">Adjusted Level</div>
+
+    <div class="card-value" id="adjusted-level">--</div>
+
+    <div class="card-unit" id="adj-unit">m (adj. datum)</div></div>
+
+</div>
+
+<div class="chart-wrap">
+
+  <div class="chart-header"><span>Past 14 Days</span>
+
+    <span><span class="legend-dot" style="background:#38bdf8"></span>Level
+
+    <span class="legend-dot" style="background:#818cf8"></span>Adjusted</span></div>
+
+  <canvas id="chart"></canvas>
+
+</div>
+
+<div class="settings"><h2>&#9881; Settings</h2>
+
+  <div class="field"><label>Datum Offset (m) &mdash; added to raw reading</label>
+
+    <input type="number" id="datum-offset" value="0" step="0.001" placeholder="e.g. -1.500" /></div>
+
+  <div class="field"><label>Adjusted Datum Label</label>
+
+    <input type="text" id="datum-label" value="Local Datum" placeholder="e.g. Chart Datum, AOD" /></div>
+
+</div>
+
+<div id="error-box"></div>
+
+<div id="status">Select a source above and press Load.</div>
+
+<script>
+
+var DAYS = 14;
+
+var AUTO_MS = 15 * 60 * 1000;
+
+var chartInst = null, pts = null, activeTab = "remote", chosenFile = null;
+
+function $(id){ return document.getElementById(id); }
+
+function setStatus(m){ $("status").textContent = m; }
+
+function showLoading(on, m){ $("loading").classList.toggle("active", on); if(m) $("loading-msg").textContent = m; }
+
+function showErr(m){ $("error-box").innerHTML = m; $("error-box").style.display = "block"; }
+
+function clearErr(){ $("error-box").style.display = "none"; }
+
+function switchTab(t){
+
+  activeTab = t;
+
+  ["remote","local"].forEach(function(x){
+
+    $("tab-"+x).classList.toggle("active", x===t);
+
+    $("pane-"+x).classList.toggle("active", x===t);
+
+  });
+
+}
+
+function reloadCurrent(){
+
+  if(activeTab==="local" && chosenFile) loadLocalFile();
+
+  else if(activeTab==="remote") loadRemote();
+
+}
+
+function parseDate(d, t){
+
+  d = (d||"").trim(); t = (t||"00:00").trim();
+
+  var re = /^\d{2}\/\d{2}\/\d{4}$/;
+
+  if(re.test(d)){
+
+    var p = d.split("/");
+
+    return new Date(p[2]+"-"+p[1]+"-"+p[0]+"T"+t);
+
+  }
+
+  return new Date(d+"T"+t);
+
+}
+
+function parseCSV(raw){
+
+  var lines = raw.split("\n");
+
+  var hi = 0;
+
+  for(var i=0; i<Math.min(lines.length,30); i++){
+
+    var lo = lines[i].toLowerCase();
+
+    if(lo.indexOf("date")>=0 && (lo.indexOf("time")>=0||lo.indexOf("value")>=0||lo.indexOf("level")>=0)){
+
+      hi=i; break;
+
+    }
+
+  }
+
+  var result = Papa.parse(lines.slice(hi).join("\n"),{header:true,skipEmptyLines:true,dynamicTyping:false});
+
+  if(!result.data.length) throw new Error("CSV parsed 0 rows.");
+
+  var h = Object.keys(result.data[0]);
+
+  var dc = h.find(function(x){ return /date/i.test(x); });
+
+  var tc = h.find(function(x){ return /time/i.test(x); });
+
+  var vc = h.find(function(x){ return /value|level|stage|height/i.test(x); });
+
+  if(!dc) throw new Error("No date column found. Columns: "+h.join(", "));
+
+  if(!vc) throw new Error("No value column found. Columns: "+h.join(", "));
+
+  var cut = new Date(Date.now() - DAYS*86400000);
+
+  var out = [];
+
+  for(var j=0; j<result.data.length; j++){
+
+    var row = result.data[j];
+
+    var ts = parseDate(row[dc], tc ? row[tc] : undefined);
+
+    var v = parseFloat(row[vc]);
+
+    if(isNaN(ts.getTime())||isNaN(v)) continue;
+
+    if(ts < cut) continue;
+
+    out.push({x:ts,y:v});
+
+  }
+
+  out.sort(function(a,b){ return a.x-b.x; });
+
+  if(!out.length) throw new Error("No data in the past 14 days.");
+
+  return out;
+
+}
+
+function applyData(text, name){
+
+  pts = parseCSV(text);
+
+  renderDashboard();
+
+  setStatus("Loaded: "+name+" — "+new Date().toLocaleString("en-IE"));
+
+}
+
+async function processBuffer(buf, name){
+
+  if(name.toLowerCase().endsWith(".zip")){
+
+    showLoading(true,"Unzipping...");
+
+    var zip = await JSZip.loadAsync(buf);
+
+    var entry = Object.values(zip.files).find(function(f){ return !f.dir && f.name.toLowerCase().endsWith(".csv"); });
+
+    if(!entry) throw new Error("No CSV found inside ZIP.");
+
+    applyData(await entry.async("string"), name+" > "+entry.name);
+
+  } else {
+
+    applyData(new TextDecoder().decode(buf), name);
+
+  }
+
+}
+
+function onFileChosen(e){
+
+  var f = e.target.files[0]; if(!f) return;
+
+  chosenFile = f;
+
+  var lbl = $("file-chosen-label");
+
+  lbl.textContent = "Selected: "+f.name+" ("+(f.size/1024).toFixed(1)+" KB)";
+
+  lbl.style.display = "block";
+
+  $("load-local-btn").style.display = "block";
+
+}
+
+function loadLocalFile(){
+
+  if(!chosenFile) return;
+
+  clearErr(); showLoading(true,"Reading file...");
+
+  var reader = new FileReader();
+
+  reader.onload = async function(e){
+
+    try{ await processBuffer(e.target.result, chosenFile.name); }
+
+    catch(err){ showErr("<strong>Parse error:</strong><br>"+err.message); setStatus("Failed."); }
+
+    finally{ showLoading(false); }
+
+  };
+
+  reader.onerror = function(){ showLoading(false); showErr("FileReader error."); };
+
+  reader.readAsArrayBuffer(chosenFile);
+
+}
+
+var dz = $("drop-zone");
+
+dz.addEventListener("dragover", function(e){ e.preventDefault(); dz.style.borderColor="#38bdf8"; });
+
+dz.addEventListener("dragleave", function(){ dz.style.borderColor=""; });
+
+dz.addEventListener("drop", function(e){
+
+  e.preventDefault(); dz.style.borderColor="";
+
+  var f = e.dataTransfer.files[0]; if(!f) return;
+
+  chosenFile = f;
+
+  $("file-chosen-label").textContent = "Selected: "+f.name;
+
+  $("file-chosen-label").style.display = "block";
+
+  $("load-local-btn").style.display = "block";
+
+});
+
+async function loadRemote(){
+
+  clearErr();
+
+  var url = $("remote-url").value.trim();
+
+  var proxy = $("cors-proxy").value.trim();
+
+  if(!url){ showErr("Please enter a URL."); return; }
+
+  showLoading(true,"Fetching...");
+
+  try{
+
+    var fetchURL = proxy ? proxy+encodeURIComponent(url) : url;
+
+    var res = await fetch(fetchURL);
+
+    if(!res.ok) throw new Error("HTTP "+res.status);
+
+    showLoading(true,"Processing...");
+
+    var buf = await res.arrayBuffer();
+
+    var name = url.split("/").pop().split("?")[0]||"data.zip";
+
+    await processBuffer(buf, name);
+
+  } catch(err){
+
+    showErr("<strong>Load failed:</strong><br>"+err.message+"<br><br>Check proxy, or try: <code>https://api.allorigins.win/raw?url=</code>");
+
+    setStatus("Load failed.");
+
+  } finally{ showLoading(false); }
+
+}
+
+function renderDashboard(){
+
+  if(!pts||!pts.length) return;
+
+  var off = parseFloat($("datum-offset").value)||0;
+
+  var lbl = $("datum-label").value.trim()||"Adj. Datum";
+
+  var last = pts[pts.length-1];
+
+  $("current-level").textContent = last.y.toFixed(3);
+
+  $("adjusted-level").textContent = (last.y+off).toFixed(3);
+
+  $("adj-unit").textContent = "m ("+lbl+")";
+
+  var ctx = $("chart").getContext("2d");
+
+  if(chartInst) chartInst.destroy();
+
+  var adjPts = pts.map(function(p){ return {x:p.x, y:+(p.y+off).toFixed(4)}; });
+
+  chartInst = new Chart(ctx,{
+
+    type:"line",
+
+    data:{datasets:[
+
+      {label:"Level (m OD Malin)",data:pts,borderColor:"#38bdf8",backgroundColor:"rgba(56,189,248,0.08)",borderWidth:1.5,pointRadius:0,fill:true,tension:0.2},
+
+      {label:lbl+" (m)",data:adjPts,borderColor:"#818cf8",borderDash:[5,4],borderWidth:1.2,pointRadius:0,fill:false,tension:0.2}
+
+    ]},
+
+    options:{
+
+      responsive:true,animation:false,
+
+      interaction:{mode:"index",intersect:false},
+
+      plugins:{
+
+        legend:{display:false},
+
+        tooltip:{backgroundColor:"#1e293b",borderColor:"#334155",borderWidth:1,titleColor:"#94a3b8",bodyColor:"#e2e8f0",
+
+          callbacks:{label:function(c){ return " "+c.dataset.label+": "+c.parsed.y.toFixed(3)+" m"; }}}
+
+      },
+
+      scales:{
+
+        x:{type:"time",time:{unit:"day",displayFormats:{day:"dd MMM"},tooltipFormat:"dd MMM HH:mm"},
+
+           grid:{color:"#1e293b"},ticks:{color:"#64748b",maxRotation:0,font:{size:10}}},
+
+        y:{grid:{color:"#334155"},ticks:{color:"#64748b",font:{size:10},callback:function(v){ return v.toFixed(2)+" m"; }}}
+
+      }
+
+    }
+
+  });
+
+}
+
+$("datum-offset").addEventListener("input", renderDashboard);
+
+$("datum-label").addEventListener("input", renderDashboard);
+
+setInterval(function(){ if(activeTab==="remote") loadRemote(); }, AUTO_MS);
+
+</script>
+
+</body>
+
+</html>
